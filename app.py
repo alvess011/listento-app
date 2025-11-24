@@ -12,32 +12,22 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS INTELIGENTE (RESPONSIVO) ---
+# --- CSS INTELIGENTE (RESPONSIVO & LIMPO) ---
 st.markdown("""
     <style>
-    /* =========================================
-       1. LIMPEZA GERAL (REMOVE MARCAS D'ÁGUA)
-       ========================================= */
+    /* Remove marcas do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* =========================================
-       2. OTIMIZAÇÃO DE ESPAÇO (PADDING)
-       ========================================= */
-    /* Diminui o espaço gigante no topo da tela */
+    /* Otimização de Espaço (Mobile Friendly) */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 800px; /* No Desktop não fica esticado demais */
+        max-width: 800px;
     }
 
-    /* =========================================
-       3. COMPONENTES VISUAIS
-       ========================================= */
-    /* Botões Grandes e Clicáveis */
+    /* Botões Grandes e Fortes */
     .stButton>button {
         width: 100%;
         border-radius: 12px;
@@ -50,9 +40,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         transition: transform 0.1s;
     }
-    .stButton>button:active {
-        transform: scale(0.98); /* Efeito de clique */
-    }
+    .stButton>button:active { transform: scale(0.98); }
     
     /* Abas Estilizadas */
     .stTabs [data-baseweb="tab-list"] { 
@@ -67,7 +55,7 @@ st.markdown("""
         color: #e0e0e0;
         border-radius: 8px;
         padding: 0px 10px;
-        flex: 1; /* Faz as abas ocuparem larguras iguais */
+        flex: 1;
         font-size: 14px;
         display: flex;
         align-items: center;
@@ -80,39 +68,20 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* Upload de Arquivo mais Compacto */
-    [data-testid='stFileUploader'] {
-        width: 100%;
-    }
+    /* Upload Compacto */
     [data-testid='stFileUploader'] section {
         padding: 15px;
         background-color: #1E1E1E;
         border: 1px dashed #555;
     }
 
-    /* =========================================
-       4. AJUSTES ESPECÍFICOS PARA MOBILE
-       ========================================= */
+    /* Ajustes Mobile */
     @media (max-width: 640px) {
-        /* Título menor no celular */
-        h1 {
-            font-size: 1.8rem !important;
-            text-align: center;
-            margin-bottom: 0px;
-        }
-        /* Abas com texto menor para não quebrar linha */
-        .stTabs [data-baseweb="tab"] {
-            font-size: 12px;
-            padding: 0 5px;
-        }
-        /* Ajuste de margens laterais */
-        .block-container {
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
+        h1 { font-size: 1.8rem !important; text-align: center; margin-bottom: 0px; }
+        .stTabs [data-baseweb="tab"] { font-size: 12px; padding: 0 5px; }
     }
     
-    /* Estilo do Tutorial */
+    /* Tutorial */
     .tutorial-step {
         background-color: #1E1E1E; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid #FF4B4B;
     }
@@ -122,7 +91,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE LOGIN INTELIGENTE (Mantida) ---
+# --- LÓGICA DE LOGIN (AUTO-DETECT) ---
 try:
     master_key = st.secrets["GEMINI_API_KEY"]
 except:
@@ -140,16 +109,20 @@ if 'api_key' not in st.session_state:
 st.title("🎧 Listento")
 
 # ==========================================
-# 🛑 TELA DE LOGIN (Backup)
+# 🛑 TELA DE LOGIN (Se não tiver chave)
 # ==========================================
 if not st.session_state.api_key:
     st.info("🔒 Configure seu acesso.")
+    
     st.markdown("""<div class="tutorial-step"><b>1. Acesse o Google</b><br><div style="text-align:center;"><a href="https://aistudio.google.com/app/apikey" target="_blank" class="google-btn">🔗 Gerar Chave (Grátis)</a></div></div>""", unsafe_allow_html=True)
     if os.path.exists("print1.png"): st.image("print1.png", use_container_width=True)
+    
     st.markdown("""<div class="tutorial-step"><b>2. Crie a Chave</b><br>Clique em <b>"Create API Key"</b> > <b>"Create in new project"</b>.</div>""", unsafe_allow_html=True)
     if os.path.exists("print2.png"): st.image("print2.png", use_container_width=True)
+    
     st.markdown("""<div class="tutorial-step"><b>3. Copie o Código</b><br>Copie o código "AIza..." e cole abaixo.</div>""", unsafe_allow_html=True)
     if os.path.exists("print3.png"): st.image("print3.png", use_container_width=True)
+    
     st.markdown("---")
     key_input = st.text_input("Sua API Key:", type="password", placeholder="Cole aqui", label_visibility="collapsed")
     if key_input:
@@ -171,7 +144,7 @@ tab_audio, tab_text, tab_reply, tab_feedback = st.tabs(["👂 Ouvir", "📖 Ler"
 # --- ABA 1: OUVIR ---
 with tab_audio:
     target_lang = st.selectbox("Traduzir áudio para:", ["Português (Brasil)", "Inglês", "Espanhol", "Francês", "Italiano", "Alemão"])
-    st.markdown("<div style='margin-bottom: 10px'></div>", unsafe_allow_html=True) # Espaçamento manual
+    st.markdown("<div style='margin-bottom: 10px'></div>", unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader("Escolher arquivo", type=['mp3', 'wav', 'ogg', 'm4a', 'wma', 'aac', 'flac', 'opus', 'mp4', 'mpeg', 'webm', 'mov'], label_visibility="collapsed")
     
@@ -185,6 +158,7 @@ with tab_audio:
                     genai.configure(api_key=api_key)
                     file_extension = os.path.splitext(uploaded_file.name)[1]
                     if not file_extension: file_extension = ".mp3"
+                    
                     with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
                         tmp_path = tmp_file.name
@@ -195,13 +169,16 @@ with tab_audio:
                     1. Transcreva o original.
                     2. Traduza para: {target_lang}.
                     3. Notas de contexto.
-                    Formato:
+                    
+                    Formato de Resposta (Markdown Clean):
                     ### 📝 Transcrição Original
-                    (Texto)
+                    (Texto aqui)
+                    
                     ### 🌍 Tradução ({target_lang})
-                    (Texto traduzido)
+                    (Texto traduzido aqui)
+                    
                     ### 💡 Notas de Contexto
-                    (Notas)
+                    (Bullet points aqui)
                     """
                     model = genai.GenerativeModel('gemini-2.0-flash') 
                     response = model.generate_content([prompt, audio_file])
@@ -216,6 +193,7 @@ with tab_text:
     target_lang_text = st.selectbox("Traduzir texto para:", ["Português (Brasil)", "Inglês", "Espanhol"], key="lang_text")
     st.markdown("<div style='margin-bottom: 10px'></div>", unsafe_allow_html=True)
     client_text = st.text_area("Texto do cliente:", height=150, placeholder="Cole o texto aqui", label_visibility="collapsed")
+    
     if st.button("Traduzir Texto", key="btn_text"):
         if not client_text: st.warning("Cole texto primeiro.")
         else:
@@ -257,13 +235,17 @@ with tab_reply:
                     st.code(response.text, language=None)
                 except Exception as e: st.error(f"Erro: {e}")
 
-# --- ABA 4: FEEDBACK ---
+# --- ABA 4: FEEDBACK (CORRIGIDA COM FLUSH) ---
 with tab_feedback:
     st.markdown("### 📢 Ajude o Listento a evoluir")
     feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
     feedback_msg = st.text_area("Sua mensagem:", height=150)
+    
     if st.button("Enviar Feedback", key="btn_feedback"):
         if feedback_msg:
-            print(f"FEEDBACK: {feedback_type} - {feedback_msg}")
+            # CORREÇÃO: flush=True obriga o log a aparecer imediatamente
+            print(f"\n[NOVO FEEDBACK] {datetime.datetime.now()} | {feedback_type}: {feedback_msg}", flush=True)
             st.success("Enviado! Obrigado.")
-        else: st.warning("Escreva algo.")
+            st.balloons()
+        else: 
+            st.warning("Escreva algo.")
