@@ -235,22 +235,32 @@ with tab_reply:
                     st.code(response.text, language=None)
                 except Exception as e: st.error(f"Erro: {e}")
 
-# --- ABA 4: FEEDBACK (FORMULÁRIO INTELIGENTE) ---
+# --- ABA 4: FEEDBACK (COM E-MAIL OPCIONAL) ---
 with tab_feedback:
     st.markdown("### 📢 Ajude o Listento a evoluir")
     
-    # USANDO FORMULÁRIO PARA LIMPAR AUTOMATICAMENTE
     with st.form(key='feedback_form', clear_on_submit=True):
-        feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
-        feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui...")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
+        
+        with col2:
+            feedback_email = st.text_input("Seu E-mail (Opcional):", placeholder="Para novidades...")
+
+        feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui o que podemos melhorar...")
         
         submit_button = st.form_submit_button(label="Enviar Feedback")
         
         if submit_button:
             if feedback_msg:
-                # flush=True garante que apareça no log imediatamente
-                print(f"\n[NOVO FEEDBACK] {datetime.datetime.now()} | {feedback_type}: {feedback_msg}", flush=True)
-                st.success("Enviado! A tela será limpa.")
+                # Monta o log
+                email_info = f" | E-MAIL: {feedback_email}" if feedback_email else " | E-MAIL: Anônimo"
+                
+                # Grava no Log (Console) com flush=True para aparecer na hora
+                print(f"\n[FEEDBACK] {datetime.datetime.now()} | TIPO: {feedback_type}{email_info} | MSG: {feedback_msg}", flush=True)
+                
+                st.success("Recebido com sucesso! Obrigado.")
                 st.balloons()
             else:
                 st.warning("Por favor, escreva uma mensagem antes de enviar.")
