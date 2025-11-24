@@ -235,17 +235,22 @@ with tab_reply:
                     st.code(response.text, language=None)
                 except Exception as e: st.error(f"Erro: {e}")
 
-# --- ABA 4: FEEDBACK (CORRIGIDA COM FLUSH) ---
+# --- ABA 4: FEEDBACK (FORMULÁRIO INTELIGENTE) ---
 with tab_feedback:
     st.markdown("### 📢 Ajude o Listento a evoluir")
-    feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
-    feedback_msg = st.text_area("Sua mensagem:", height=150)
     
-    if st.button("Enviar Feedback", key="btn_feedback"):
-        if feedback_msg:
-            # CORREÇÃO: flush=True obriga o log a aparecer imediatamente
-            print(f"\n[NOVO FEEDBACK] {datetime.datetime.now()} | {feedback_type}: {feedback_msg}", flush=True)
-            st.success("Enviado! Obrigado.")
-            st.balloons()
-        else: 
-            st.warning("Escreva algo.")
+    # USANDO FORMULÁRIO PARA LIMPAR AUTOMATICAMENTE
+    with st.form(key='feedback_form', clear_on_submit=True):
+        feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
+        feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui...")
+        
+        submit_button = st.form_submit_button(label="Enviar Feedback")
+        
+        if submit_button:
+            if feedback_msg:
+                # flush=True garante que apareça no log imediatamente
+                print(f"\n[NOVO FEEDBACK] {datetime.datetime.now()} | {feedback_type}: {feedback_msg}", flush=True)
+                st.success("Enviado! A tela será limpa.")
+                st.balloons()
+            else:
+                st.warning("Por favor, escreva uma mensagem antes de enviar.")
