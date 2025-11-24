@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import tempfile
 import os
+import datetime
 
 # --- Configuração da Página ---
 st.set_page_config(
@@ -47,7 +48,7 @@ st.markdown("""
         border: 2px solid #FF4B4B !important;
     }
     
-    /* Estilo do Tutorial (Limpo) */
+    /* Tutorial */
     .tutorial-step {
         background-color: #1E1E1E;
         padding: 15px;
@@ -129,9 +130,10 @@ if not st.session_state.api_key:
 # ==========================================
 api_key = st.session_state.api_key
 
-tab_audio, tab_text, tab_reply = st.tabs(["👂 Ouvir", "📖 Ler", "✍️ Responder"])
+# ADICIONEI A ABA DE FEEDBACK AQUI
+tab_audio, tab_text, tab_reply, tab_feedback = st.tabs(["👂 Ouvir", "📖 Ler", "✍️ Responder", "📢 Feedback"])
 
-# --- ABA 1: OUVIR (Compatibilidade Total) ---
+# --- ABA 1: OUVIR ---
 with tab_audio:
     col_lang, col_vazio = st.columns([2, 1])
     with col_lang:
@@ -139,27 +141,23 @@ with tab_audio:
     
     st.markdown("---")
     
-    # ATUALIZADO: Lista completa de formatos suportados
     uploaded_file = st.file_uploader(
         "Escolher arquivo (Áudio ou Vídeo)", 
         type=['mp3', 'wav', 'ogg', 'm4a', 'wma', 'aac', 'flac', 'opus', 'mp4', 'mpeg', 'webm', 'mov']
     )
     
     if uploaded_file:
-        # Exibe player de vídeo se for vídeo, ou áudio se for áudio
         if uploaded_file.type.startswith('video'):
             st.video(uploaded_file)
         else:
             st.audio(uploaded_file)
         
         if st.button("Transcrever e Traduzir", key="btn_audio"):
-            with st.spinner('Processando arquivo...'):
+            with st.spinner('Processando...'):
                 try:
                     genai.configure(api_key=api_key)
-                    
-                    # Cria arquivo temporário com a extensão correta
                     file_extension = os.path.splitext(uploaded_file.name)[1]
-                    if not file_extension: file_extension = ".mp3" # Fallback
+                    if not file_extension: file_extension = ".mp3"
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
@@ -167,7 +165,6 @@ with tab_audio:
                         
                     audio_file = genai.upload_file(path=tmp_path)
                     
-                    # Prompt Clássico
                     prompt = f"""
                     Tarefa: Transcrever e traduzir.
                     1. Transcreva o original.
@@ -191,7 +188,6 @@ with tab_audio:
                     st.success("Concluído com Sucesso!")
                     st.markdown("---")
                     st.markdown(response.text)
-                    
                     os.unlink(tmp_path)
                 except Exception as e:
                     st.error(f"Erro: {e}")
@@ -212,14 +208,11 @@ with tab_text:
                     genai.configure(api_key=api_key)
                     prompt = f"""
                     Traduza para {target_lang_text}: "{client_text}".
-                    
                     Formato:
                     ### 📄 Original
                     {client_text}
-                    
                     ### 🌍 Tradução
                     (Tradução aqui)
-                    
                     ### 💡 Notas
                     (Contexto aqui)
                     """
@@ -247,8 +240,28 @@ with tab_reply:
                     prompt = f"Traduza '{my_reply}' para {target_lang_reply}. Tom: {tone_reply}. Saída: Apenas texto final pronto para copiar."
                     model = genai.GenerativeModel('gemini-2.0-flash')
                     response = model.generate_content(prompt)
-                    
                     st.success("Copie abaixo:")
                     st.code(response.text, language=None)
                 except Exception as e:
                     st.error(f"Erro: {e}")
+
+# --- ABA 4: FEEDBACK (NOVA) ---
+with tab_feedback:
+    st.markdown("### 📢 Ajude o Listento a evoluir")
+    st.write("Encontrou um bug ou tem uma ideia? Escreva abaixo.")
+    
+    feedback_type = st.selectbox("Do que se trata?", ["Sugestão de Melhoria", "Relatar Erro/Bug", "Elogio"])
+    feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Ex: Adicionar tradução para Japonês...")
+    
+    if st.button("Enviar Feedback", key="btn_feedback"):
+        if feedback_msg:
+            # Aqui simulamos o envio e printamos no LOG do servidor
+            print(f"\n--- NOVO FEEDBACK RECEBIDO [{datetime.datetime.now()}] ---")
+            print(f"TIPO: {feedback_type}")
+            print(f"MSG: {feedback_msg}")
+            print("---------------------------------------------------\n")
+            
+            st.success("Obrigado! Sua mensagem foi enviada para o nosso time.")
+            st.balloons() # Um efeito visual de comemoração
+        else:
+            st.warning("Por favor, escreva algo antes de enviar.")
