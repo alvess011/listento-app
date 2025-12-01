@@ -3,6 +3,12 @@ import google.generativeai as genai
 import tempfile
 import os
 import datetime
+import time # <--- NOVO: Para gerenciar o tempo de espera de vídeos longos
+import logging
+
+# --- Configuração de LOGS ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # --- Configuração da Página ---
 st.set_page_config(
@@ -12,76 +18,38 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS INTELIGENTE (RESPONSIVO & LIMPO) ---
+# --- CSS INTELIGENTE ---
 st.markdown("""
     <style>
-    /* Remove marcas do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Otimização de Espaço (Mobile Friendly) */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 2rem !important;
         max-width: 800px;
     }
-
-    /* Botões Grandes e Fortes */
     .stButton>button {
-        width: 100%;
-        border-radius: 12px;
-        height: 55px;
-        font-weight: bold;
-        font-size: 18px;
-        background-color: #FF4B4B;
-        color: white;
-        border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        transition: transform 0.1s;
+        width: 100%; border-radius: 12px; height: 55px; font-weight: bold; font-size: 18px;
+        background-color: #FF4B4B; color: white; border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: transform 0.1s;
     }
     .stButton>button:active { transform: scale(0.98); }
-    
-    /* Abas Estilizadas */
-    .stTabs [data-baseweb="tab-list"] { 
-        gap: 8px; 
-        background-color: transparent;
-        padding-bottom: 10px;
-    }
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; background-color: transparent; padding-bottom: 10px; }
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: #262730;
-        border: 1px solid #444;
-        color: #e0e0e0;
-        border-radius: 8px;
-        padding: 0px 10px;
-        flex: 1;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        height: 45px; background-color: #262730; border: 1px solid #444; color: #e0e0e0;
+        border-radius: 8px; padding: 0px 10px; flex: 1; font-size: 14px;
+        display: flex; align-items: center; justify-content: center;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        border: 1px solid #FF4B4B !important;
-        font-weight: bold;
+        background-color: #FF4B4B !important; color: white !important;
+        border: 1px solid #FF4B4B !important; font-weight: bold;
     }
-    
-    /* Upload Compacto */
-    [data-testid='stFileUploader'] section {
-        padding: 15px;
-        background-color: #1E1E1E;
-        border: 1px dashed #555;
-    }
-
-    /* Ajustes Mobile */
+    [data-testid='stFileUploader'] section { padding: 15px; background-color: #1E1E1E; border: 1px dashed #555; }
     @media (max-width: 640px) {
         h1 { font-size: 1.8rem !important; text-align: center; margin-bottom: 0px; }
         .stTabs [data-baseweb="tab"] { font-size: 12px; padding: 0 5px; }
     }
-    
-    /* Tutorial */
     .tutorial-step {
         background-color: #1E1E1E; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid #FF4B4B;
     }
@@ -91,7 +59,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE LOGIN (AUTO-DETECT) ---
+# --- LÓGICA DE LOGIN ---
 try:
     master_key = st.secrets["GEMINI_API_KEY"]
 except:
@@ -109,20 +77,16 @@ if 'api_key' not in st.session_state:
 st.title("🎧 Listento")
 
 # ==========================================
-# 🛑 TELA DE LOGIN (Se não tiver chave)
+# 🛑 TELA DE LOGIN
 # ==========================================
 if not st.session_state.api_key:
     st.info("🔒 Configure seu acesso.")
-    
     st.markdown("""<div class="tutorial-step"><b>1. Acesse o Google</b><br><div style="text-align:center;"><a href="https://aistudio.google.com/app/apikey" target="_blank" class="google-btn">🔗 Gerar Chave (Grátis)</a></div></div>""", unsafe_allow_html=True)
     if os.path.exists("print1.png"): st.image("print1.png", use_container_width=True)
-    
     st.markdown("""<div class="tutorial-step"><b>2. Crie a Chave</b><br>Clique em <b>"Create API Key"</b> > <b>"Create in new project"</b>.</div>""", unsafe_allow_html=True)
     if os.path.exists("print2.png"): st.image("print2.png", use_container_width=True)
-    
     st.markdown("""<div class="tutorial-step"><b>3. Copie o Código</b><br>Copie o código "AIza..." e cole abaixo.</div>""", unsafe_allow_html=True)
     if os.path.exists("print3.png"): st.image("print3.png", use_container_width=True)
-    
     st.markdown("---")
     key_input = st.text_input("Sua API Key:", type="password", placeholder="Cole aqui", label_visibility="collapsed")
     if key_input:
@@ -135,13 +99,12 @@ if not st.session_state.api_key:
 # 📱 APP PRINCIPAL
 # ==========================================
 api_key = st.session_state.api_key
-
 if st.session_state.get('using_master_key'):
     st.toast("✅ Conectado (VIP)", icon="🚀")
 
 tab_audio, tab_text, tab_reply, tab_feedback = st.tabs(["👂 Ouvir", "📖 Ler", "✍️ Responder", "📢 Feedback"])
 
-# --- ABA 1: OUVIR ---
+# --- ABA 1: OUVIR (COM SUPORTE A ARQUIVOS LONGOS) ---
 with tab_audio:
     target_lang = st.selectbox("Traduzir áudio para:", ["Português (Brasil)", "Inglês", "Espanhol", "Francês", "Italiano", "Alemão"])
     st.markdown("<div style='margin-bottom: 10px'></div>", unsafe_allow_html=True)
@@ -149,30 +112,52 @@ with tab_audio:
     uploaded_file = st.file_uploader("Escolher arquivo", type=['mp3', 'wav', 'ogg', 'm4a', 'wma', 'aac', 'flac', 'opus', 'mp4', 'mpeg', 'webm', 'mov'], label_visibility="collapsed")
     
     if uploaded_file:
-        if uploaded_file.type.startswith('video'): st.video(uploaded_file)
-        else: st.audio(uploaded_file)
+        # Mostra player adequado
+        if uploaded_file.type.startswith('video'):
+            st.video(uploaded_file)
+        else:
+            st.audio(uploaded_file)
         
         if st.button("Transcrever e Traduzir", key="btn_audio"):
-            with st.spinner('Processando...'):
-                try:
-                    genai.configure(api_key=api_key)
-                    file_extension = os.path.splitext(uploaded_file.name)[1]
-                    if not file_extension: file_extension = ".mp3"
+            try:
+                genai.configure(api_key=api_key)
+                
+                # 1. Salvar arquivo temporário
+                file_extension = os.path.splitext(uploaded_file.name)[1]
+                if not file_extension: file_extension = ".mp3"
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+                    tmp_file.write(uploaded_file.getvalue())
+                    tmp_path = tmp_file.name
+                
+                # 2. Upload para o servidor do Google
+                with st.spinner('📤 Enviando arquivo para o cérebro da IA...'):
+                    google_file = genai.upload_file(path=tmp_path)
+                
+                # 3. Lógica de Espera (Polling) para vídeos longos
+                # Arquivos grandes precisam ser processados antes de usar
+                with st.spinner('⚙️ Processando áudio/vídeo (isso pode levar alguns segundos)...'):
+                    while google_file.state.name == "PROCESSING":
+                        time.sleep(2)
+                        google_file = genai.get_file(google_file.name)
                     
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
-                        tmp_file.write(uploaded_file.getvalue())
-                        tmp_path = tmp_file.name
-                    audio_file = genai.upload_file(path=tmp_path)
-                    
+                    if google_file.state.name == "FAILED":
+                        raise ValueError("O processamento do arquivo falhou no Google.")
+
+                # 4. Gerar Conteúdo
+                with st.spinner('🧠 Traduzindo e analisando contexto...'):
                     prompt = f"""
-                    Tarefa: Transcrever e traduzir.
-                    1. Transcreva o original.
-                    2. Traduza para: {target_lang}.
-                    3. Notas de contexto.
+                    Atue como um transcritor expert.
+                    O arquivo fornecido pode ser um áudio ou vídeo longo.
                     
-                    Formato de Resposta (Markdown Clean):
-                    ### 📝 Transcrição Original
-                    (Texto aqui)
+                    TAREFA:
+                    1. Transcreva TUDO o que for falado, do início ao fim.
+                    2. Traduza a transcrição completa para: {target_lang}.
+                    3. Notas de Contexto: Explique o tom, gírias ou detalhes culturais.
+                    
+                    FORMATO DE SAÍDA (Markdown):
+                    ### 📝 Transcrição Completa
+                    (Texto original aqui)
                     
                     ### 🌍 Tradução ({target_lang})
                     (Texto traduzido aqui)
@@ -180,13 +165,24 @@ with tab_audio:
                     ### 💡 Notas de Contexto
                     (Bullet points aqui)
                     """
+                    
                     model = genai.GenerativeModel('gemini-2.0-flash') 
-                    response = model.generate_content([prompt, audio_file])
-                    st.success("Sucesso!")
+                    # Aumentei o limite de tokens para aguentar vídeos longos
+                    response = model.generate_content([prompt, google_file])
+                    
+                    logger.info(f"ARQUIVO PROCESSADO | Nome: {uploaded_file.name} | Tamanho: {uploaded_file.size}")
+                    
+                    st.success("Processamento Concluído!")
                     st.markdown(response.text)
-                    os.unlink(tmp_path)
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+                
+                # Limpeza
+                os.unlink(tmp_path)
+                # Opcional: Deletar arquivo do servidor do Google para não lotar
+                # genai.delete_file(google_file.name) 
+
+            except Exception as e:
+                st.error(f"Erro técnico: {e}")
+                logger.error(f"ERRO AUDIO: {e}")
 
 # --- ABA 2: LER ---
 with tab_text:
@@ -235,32 +231,22 @@ with tab_reply:
                     st.code(response.text, language=None)
                 except Exception as e: st.error(f"Erro: {e}")
 
-# --- ABA 4: FEEDBACK (COM E-MAIL OPCIONAL) ---
+# --- ABA 4: FEEDBACK (COM LOGGERS) ---
 with tab_feedback:
     st.markdown("### 📢 Ajude o Listento a evoluir")
     
     with st.form(key='feedback_form', clear_on_submit=True):
         col1, col2 = st.columns(2)
-        
-        with col1:
-            feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
-        
-        with col2:
-            feedback_email = st.text_input("Seu E-mail (Opcional):", placeholder="Para novidades...")
-
-        feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui o que podemos melhorar...")
-        
+        with col1: feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
+        with col2: feedback_email = st.text_input("Seu E-mail (Opcional):", placeholder="Para novidades...")
+        feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui...")
         submit_button = st.form_submit_button(label="Enviar Feedback")
         
         if submit_button:
             if feedback_msg:
-                # Monta o log
-                email_info = f" | E-MAIL: {feedback_email}" if feedback_email else " | E-MAIL: Anônimo"
-                
-                # Grava no Log (Console) com flush=True para aparecer na hora
-                print(f"\n[FEEDBACK] {datetime.datetime.now()} | TIPO: {feedback_type}{email_info} | MSG: {feedback_msg}", flush=True)
-                
-                st.success("Recebido com sucesso! Obrigado.")
+                email_info = f"E-MAIL: {feedback_email}" if feedback_email else "E-MAIL: Anônimo"
+                logger.info(f"NOVO FEEDBACK | TIPO: {feedback_type} | {email_info} | MSG: {feedback_msg}")
+                st.success("Enviado! Obrigado.")
                 st.balloons()
             else:
-                st.warning("Por favor, escreva uma mensagem antes de enviar.")
+                st.warning("Escreva algo.")
