@@ -3,7 +3,7 @@ import google.generativeai as genai
 import tempfile
 import os
 import datetime
-import time 
+import time # <--- NOVO: Para gerenciar o tempo de espera de vídeos longos
 import logging
 
 # --- Configuração de LOGS ---
@@ -56,14 +56,14 @@ st.markdown("""
     .google-btn {
         background-color: #4285F4; color: white !important; text-decoration: none; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 10px;
     }
-    .error-box {
-        padding: 15px; border-radius: 8px; background-color: #3d1212; border: 1px solid #ff4b4b; color: #ffcccc; margin-top: 10px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE LOGIN (COM NOVA CHAVE ATUALIZADA) ---
-master_key = "AIzaSyA4xzGTPN-56gyTNXr1dKF_zuFPcTyrTbc"
+# --- LÓGICA DE LOGIN ---
+try:
+    master_key = st.secrets["GEMINI_API_KEY"]
+except:
+    master_key = None
 
 if 'api_key' not in st.session_state:
     if master_key:
@@ -77,10 +77,22 @@ if 'api_key' not in st.session_state:
 st.title("🎧 Listento")
 
 # ==========================================
-# 🛑 TELA DE LOGIN (Vai ser pulada automaticamente)
+# 🛑 TELA DE LOGIN
 # ==========================================
 if not st.session_state.api_key:
     st.info("🔒 Configure seu acesso.")
+    st.markdown("""<div class="tutorial-step"><b>1. Acesse o Google</b><br><div style="text-align:center;"><a href="https://aistudio.google.com/app/apikey" target="_blank" class="google-btn">🔗 Gerar Chave (Grátis)</a></div></div>""", unsafe_allow_html=True)
+    if os.path.exists("print1.png"): st.image("print1.png", use_container_width=True)
+    st.markdown("""<div class="tutorial-step"><b>2. Crie a Chave</b><br>Clique em <b>"Create API Key"</b> > <b>"Create in new project"</b>.</div>""", unsafe_allow_html=True)
+    if os.path.exists("print2.png"): st.image("print2.png", use_container_width=True)
+    st.markdown("""<div class="tutorial-step"><b>3. Copie o Código</b><br>Copie o código "AIza..." e cole abaixo.</div>""", unsafe_allow_html=True)
+    if os.path.exists("print3.png"): st.image("print3.png", use_container_width=True)
+    st.markdown("---")
+    key_input = st.text_input("Sua API Key:", type="password", placeholder="Cole aqui", label_visibility="collapsed")
+    if key_input:
+        st.session_state.api_key = key_input
+        st.session_state.using_master_key = False
+        st.rerun()
     st.stop()
 
 # ==========================================
@@ -88,11 +100,11 @@ if not st.session_state.api_key:
 # ==========================================
 api_key = st.session_state.api_key
 if st.session_state.get('using_master_key'):
-    st.toast("✅ Conectado (Modo Teste)", icon="🚀")
+    st.toast("✅ Conectado (VIP)", icon="🚀")
 
 tab_audio, tab_text, tab_reply, tab_feedback = st.tabs(["👂 Ouvir", "📖 Ler", "✍️ Responder", "📢 Feedback"])
 
-# --- ABA 1: OUVIR ---
+# --- ABA 1: OUVIR (COM SUPORTE A ARQUIVOS LONGOS) ---
 with tab_audio:
     target_lang = st.selectbox("Traduzir áudio para:", ["Português (Brasil)", "Inglês", "Espanhol", "Francês", "Italiano", "Alemão"])
     st.markdown("<div style='margin-bottom: 10px'></div>", unsafe_allow_html=True)
@@ -100,6 +112,7 @@ with tab_audio:
     uploaded_file = st.file_uploader("Escolher arquivo", type=['mp3', 'wav', 'ogg', 'm4a', 'wma', 'aac', 'flac', 'opus', 'mp4', 'mpeg', 'webm', 'mov'], label_visibility="collapsed")
     
     if uploaded_file:
+        # Mostra player adequado
         if uploaded_file.type.startswith('video'):
             st.video(uploaded_file)
         else:
@@ -121,7 +134,8 @@ with tab_audio:
                 with st.spinner('📤 Enviando arquivo para o cérebro da IA...'):
                     google_file = genai.upload_file(path=tmp_path)
                 
-                # 3. Lógica de Espera (Polling)
+                # 3. Lógica de Espera (Polling) para vídeos longos
+                # Arquivos grandes precisam ser processados antes de usar
                 with st.spinner('⚙️ Processando áudio/vídeo (isso pode levar alguns segundos)...'):
                     while google_file.state.name == "PROCESSING":
                         time.sleep(2)
@@ -153,6 +167,7 @@ with tab_audio:
                     """
                     
                     model = genai.GenerativeModel('gemini-2.0-flash') 
+                    # Aumentei o limite de tokens para aguentar vídeos longos
                     response = model.generate_content([prompt, google_file])
                     
                     logger.info(f"ARQUIVO PROCESSADO | Nome: {uploaded_file.name} | Tamanho: {uploaded_file.size}")
@@ -162,19 +177,11 @@ with tab_audio:
                 
                 # Limpeza
                 os.unlink(tmp_path)
+                # Opcional: Deletar arquivo do servidor do Google para não lotar
+                # genai.delete_file(google_file.name) 
 
             except Exception as e:
-                error_message = str(e)
-                if "429" in error_message or "quota" in error_message.lower():
-                    st.markdown("""
-                        <div class="error-box">
-                            <b>⚠️ Limite da Cota Gratuita Atingido</b><br>
-                            O Google pausou suas requisições temporariamente.<br>
-                            Tente aguardar 1 minuto ou troque a chave novamente no código.
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.error(f"Erro técnico: {e}")
+                st.error(f"Erro técnico: {e}")
                 logger.error(f"ERRO AUDIO: {e}")
 
 # --- ABA 2: LER ---
@@ -202,11 +209,7 @@ with tab_text:
                     model = genai.GenerativeModel('gemini-2.0-flash')
                     response = model.generate_content(prompt)
                     st.markdown(response.text)
-                except Exception as e: 
-                    if "429" in str(e):
-                        st.warning("⚠️ Cota excedida. Aguarde um momento.")
-                    else:
-                        st.error(f"Erro: {e}")
+                except Exception as e: st.error(f"Erro: {e}")
 
 # --- ABA 3: RESPONDER ---
 with tab_reply:
@@ -226,21 +229,19 @@ with tab_reply:
                     response = model.generate_content(prompt)
                     st.success("Copie abaixo:")
                     st.code(response.text, language=None)
-                except Exception as e: 
-                     if "429" in str(e):
-                        st.warning("⚠️ Cota excedida. Aguarde um momento.")
-                     else:
-                        st.error(f"Erro: {e}")
+                except Exception as e: st.error(f"Erro: {e}")
 
-# --- ABA 4: FEEDBACK ---
+# --- ABA 4: FEEDBACK (COM LOGGERS) ---
 with tab_feedback:
     st.markdown("### 📢 Ajude o Listento a evoluir")
+    
     with st.form(key='feedback_form', clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1: feedback_type = st.selectbox("Tipo:", ["Sugestão", "Erro/Bug", "Elogio"])
         with col2: feedback_email = st.text_input("Seu E-mail (Opcional):", placeholder="Para novidades...")
         feedback_msg = st.text_area("Sua mensagem:", height=150, placeholder="Escreva aqui...")
         submit_button = st.form_submit_button(label="Enviar Feedback")
+        
         if submit_button:
             if feedback_msg:
                 email_info = f"E-MAIL: {feedback_email}" if feedback_email else "E-MAIL: Anônimo"
